@@ -1,11 +1,13 @@
+import { connect } from 'http2';
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { connectDB } from '../../middlewares/connectDB';
 
 type cadastroRequest = {
     email : string,
     password : string,
 }
 
-const handler = (req : NextApiRequest, res : NextApiResponse) => {
+const handler = (req: NextApiRequest, res: NextApiResponse) => {
 
     try{
 
@@ -33,11 +35,9 @@ const handler = (req : NextApiRequest, res : NextApiResponse) => {
 
         return res.status(200).json({sucess:'login efetuado'});
 
-    }catch(e : any){
-    
+    }catch(e: any){
         console.log('erro ao efetuar cadastro', e);
-    
     }
 }
 
-export default handler;
+export default connectDB(handler);
