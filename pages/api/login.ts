@@ -1,43 +1,42 @@
-import md5 from 'md5';
 import type {NextApiRequest, NextApiResponse} from 'next';
-import { connectDB } from '../../middlewares/connectDB';
-import { UserModel } from '../../models/UserModels';
-import { DefaultResponseMsg } from '../../types/DefaultResponseMsg';
+import md5 from 'md5';
 import jwt from 'jsonwebtoken';
+import connectDB from '../../middlewares/connectDB';
+import {UserModel} from '../../models/UserModel';
+import {DefaultResponseMsg} from '../../types/DefaultResponseMsg';
+import { Login } from '../../types/Login';
+import { LoginResponse } from '../../types/LoginResponse';
 
-type LoginRequest = {
-    login: string,
-    password: string
-}
-
-const handler = async (req : NextApiRequest, res: NextApiResponse<DefaultResponseMsg | any>) =>{
+ const handler = async (req : NextApiRequest, res : NextApiResponse<DefaultResponseMsg | LoginResponse>) => {
     try{
         if(req.method !== 'POST'){
-            return res.status(405).json({error: 'Metodo solicitado não existe'});
+            res.status(400).json({ error: 'Metodo solicitado nao existe '});
+            return;
         }
 
-        const {JWT_SECRET} = process.env;
-        if(!JWT_SECRET){
-            return res.status(500).json({error: 'Env jwt não informada'});
+        const {MY_SECRET_KEY} = process.env;
+        if(!MY_SECRET_KEY){
+            res.status(500).json({ error: 'ENV my secret key nao encontrada '});
+            return;
         }
 
-        const {body} = req;
-        const dados = body as LoginRequest;
-
-        if(!dados.login || !dados.password){
-            return res.status(400).json({error: 'Favor preencher os campos'});
+        if(req.body){
+            const auth = req.body as Login;
+            if(auth.login && auth.password){
+                const usersFound = await UserModel.find({email : auth.login, password: md5(auth.password)});
+                if(usersFound && usersFound.length > 0){
+                    const user = usersFound[0];
+                    const token = jwt.sign({_id : user._id}, MY_SECRET_KEY);
+                    res.status(200).json({ token, name: user.name, email: user.email});
+                    return;
+                }
+            }
         }
 
-        const existsUsers = await UserModel.find({email: dados.login, password: md5(dados.password)});
-        if(existsUsers && existsUsers.length > 0){
-            const user = existsUsers[0];
-            const token = jwt.sign({_id : user._id}, JWT_SECRET);
-            return res.status(200).json({name: user.name, email: user.email, token});
-        }
-        return res.status(400).json({error : 'Login e senha não conferem'});
-    }catch(e : any){
-        console.log('Erro ao efetuar cadastro:', e);
-        return res.status(500).json({error: 'Ocorreu erro ao cadastrar, tente novamente!'});
+        res.status(400).json({ error: 'Usuario ou senha invalidos '});
+    }catch(e){
+        console.log('Ocorreu erro ao autenticar usuario: ', e);
+        res.status(500).json({ error: 'Ocorreu erro ao autenticar usuario, tente novamente '});
     }
 }
 
